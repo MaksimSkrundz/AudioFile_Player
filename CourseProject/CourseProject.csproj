@@ -115,9 +115,10 @@
   <ItemGroup>
     <Compile Include="AudioPlayer.cs" />
     <Compile Include="Config.cs" />
-    <Compile Include="DeoderFactory.cs" />
+    <Compile Include="DeсoderFactory.cs" />
     <Compile Include="EqualizerBand.cs" />
     <Compile Include="EqualizerSampleProvider.cs" />
+    <Compile Include="Hotkeys.cs" />
     <Compile Include="IAudioDecoder.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>

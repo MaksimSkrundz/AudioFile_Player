@@ -1,7 +1,6 @@
-﻿using CourseProject;
-using NAudio.Dsp;
+﻿using NAudio.Dsp;
 using NAudio.Wave;
-using System;
+using NAudio.Wave.SampleProviders;
 using System.Collections.Generic;
 
 namespace CourseProject
@@ -12,26 +11,34 @@ namespace CourseProject
         private readonly int channels;
         private readonly List<EqualizerBand> bands;
         private BiQuadFilter[][] filters;
-        private WaveFormat waveFormat;
 
-        public EqualizerSampleProvider(ISampleProvider src, EqualizerBand[] bands)
+        public WaveFormat WaveFormat => source.WaveFormat;
+
+        public EqualizerSampleProvider(ISampleProvider source, EqualizerBand[] bands)
         {
-            this.source = src;
+            this.source = source;
             this.bands = new List<EqualizerBand>(bands);
-            this.waveFormat = src.WaveFormat;
-            this.channels = waveFormat.Channels;
+            channels = source.WaveFormat.Channels;
+
             CreateFilters();
         }
 
-        void CreateFilters()
+        private void CreateFilters()
         {
             filters = new BiQuadFilter[bands.Count][];
+
             for (int i = 0; i < bands.Count; i++)
             {
                 filters[i] = new BiQuadFilter[channels];
+
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    filters[i][ch] = BiQuadFilter.PeakingEQ(waveFormat.SampleRate, bands[i].Frequency, bands[i].Bandwidth, bands[i].Gain);
+                    filters[i][ch] = BiQuadFilter.PeakingEQ(
+                        WaveFormat.SampleRate,
+                        bands[i].Frequency,
+                        bands[i].Bandwidth,
+                        bands[i].Gain
+                    );
                 }
             }
         }
@@ -39,28 +46,39 @@ namespace CourseProject
         public void UpdateBand(int index, float gain)
         {
             if (index < 0 || index >= bands.Count) return;
-            bands[index].Gain = gain;
-            for (int ch = 0; ch < channels; ch++)
-                filters[index][ch] = BiQuadFilter.PeakingEQ(waveFormat.SampleRate, bands[index].Frequency, bands[index].Bandwidth, bands[index].Gain);
-        }
 
-        public WaveFormat WaveFormat => waveFormat;
+            bands[index].Gain = gain;
+
+            for (int ch = 0; ch < channels; ch++)
+            {
+                filters[index][ch] = BiQuadFilter.PeakingEQ(
+                    WaveFormat.SampleRate,
+                    bands[index].Frequency,
+                    bands[index].Bandwidth,
+                    bands[index].Gain
+                );
+            }
+        }
 
         public int Read(float[] buffer, int offset, int count)
         {
-            int samplesRead = source.Read(buffer, offset, count);
-            for (int n = 0; n < samplesRead; n += channels)
+            int read = source.Read(buffer, offset, count);
+
+            for (int i = 0; i < read; i += channels)
             {
                 for (int ch = 0; ch < channels; ch++)
                 {
-                    int idx = offset + n + ch;
+                    int idx = offset + i + ch;
                     float sample = buffer[idx];
+
                     for (int b = 0; b < filters.Length; b++)
                         sample = filters[b][ch].Transform(sample);
+
                     buffer[idx] = sample;
                 }
             }
-            return samplesRead;
+
+            return read;
         }
     }
 }

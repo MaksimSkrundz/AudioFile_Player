@@ -1,49 +1,53 @@
-﻿using CourseProject;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 
-namespace CourseProject
+namespace CourseProject.Playlist
 {
     public class PlaylistManager
     {
         public List<PlaylistItem> Playlist { get; private set; } = new List<PlaylistItem>();
 
-        public void Add(PlaylistItem item) => Playlist.Add(item);
-
-        public void SetPlaylist(List<PlaylistItem> list)
+        public void Add(PlaylistItem item)
         {
-            Playlist = list ?? new List<PlaylistItem>();
+            Playlist.Add(item);
+        }
+
+        public void RemoveAt(int index)
+        {
+            if (index >= 0 && index < Playlist.Count)
+                Playlist.RemoveAt(index);
+        }
+
+        public PlaylistItem Get(int index)
+        {
+            if (index < 0 || index >= Playlist.Count) return null;
+            return Playlist[index];
         }
 
         public void Save(string path)
         {
-            try
+            var json = JsonSerializer.Serialize(Playlist, new JsonSerializerOptions
             {
-                var json = JsonSerializer.Serialize(Playlist, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(path, json);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to save playlist: " + ex.Message, ex);
-            }
+                WriteIndented = true
+            });
+
+            File.WriteAllText(path, json);
         }
 
         public void Load(string path)
         {
-            if (!File.Exists(path)) throw new FileNotFoundException(path);
-            try
-            {
-                var json = File.ReadAllText(path);
-                var list = JsonSerializer.Deserialize<List<PlaylistItem>>(json) ?? new List<PlaylistItem>();
-                Playlist = list;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to load playlist: " + ex.Message, ex);
-            }
+            if (!File.Exists(path)) return;
+
+            var json = File.ReadAllText(path);
+            Playlist = JsonSerializer.Deserialize<List<PlaylistItem>>(json)
+                       ?? new List<PlaylistItem>();
+        }
+
+        public void SetPlaylist(List<PlaylistItem> list)
+        {
+            Playlist = list;
         }
     }
 }
+

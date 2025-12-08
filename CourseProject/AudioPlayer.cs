@@ -1,53 +1,41 @@
 ﻿using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace CourseProject
 {
     public class AudioPlayer
     {
-        private WaveOutEvent output;                            
-        public WaveOutEvent OutputDevice => output;            
+        private WaveOutEvent output;
+        private string currentFilePath;
+        private bool isManualStop = false;
 
+        public WaveOutEvent OutputDevice => output;
         public AudioFileReader Reader { get; private set; }
         public VolumeSampleProvider VolumeProvider { get; private set; }
         public EqualizerSampleProvider Equalizer { get; private set; }
 
-        private readonly List<IAudioDecoder> decoders;
-
         public event EventHandler PlaybackStopped;
+        public event EventHandler PlaybackCompleted;
 
-        public AudioPlayer()
+        public AudioPlayer() { }
+
+        public void Play(string filePath, float volume, EqualizerBand[] bands, IAudioDecoder decoder)
         {
-            decoders = new List<IAudioDecoder>
+            if (currentFilePath == filePath && output?.PlaybackState == PlaybackState.Playing)
             {
-                new Mp3Decoder(),
-                new WavDecoder()
-            };
-        }
-
-        public void Play(string path, float volume, EqualizerBand[] bands, IAudioDecoder decoder)
-        {
-            if (decoder == null)
-            {
-                decoder = decoders.FirstOrDefault(d => d.CanOpen(path));
-                if (decoder == null) throw new NotSupportedException("Не найден декодер для файла: " + path);
-            }
-
-            if (output != null && output.PlaybackState == PlaybackState.Paused && Reader != null && Reader.FileName == path)
-            {
-                Resume();
+                Seek(0);
                 return;
             }
 
             Stop();
+            currentFilePath = filePath;
+            isManualStop = false;
 
-            var sample = decoder.Load(path);
-            Reader = decoder.Reader ?? (sample as AudioFileReader); 
+            var sampleProvider = decoder.Load(filePath);
+            Reader = decoder.Reader;
 
-            Equalizer = new EqualizerSampleProvider(sample, bands ?? new EqualizerBand[0]);
+            Equalizer = new EqualizerSampleProvider(sampleProvider, bands);
 
             VolumeProvider = new VolumeSampleProvider(Equalizer)
             {
@@ -55,75 +43,75 @@ namespace CourseProject
             };
 
             output = new WaveOutEvent();
-            output.Init(VolumeProvider.ToWaveProvider16());
-            output.PlaybackStopped += Output_PlaybackStopped;
+            output.Init(VolumeProvider);
+            output.PlaybackStopped += OnPlaybackStopped;
             output.Play();
         }
 
-        private void Output_PlaybackStopped(object sender, StoppedEventArgs e)
+        private void OnPlaybackStopped(object sender, StoppedEventArgs e)
         {
+            if (e.Exception != null)
+            {
+            }
+            else if (!isManualStop)
+            {
+                PlaybackCompleted?.Invoke(this, EventArgs.Empty);
+            }
+
             PlaybackStopped?.Invoke(this, EventArgs.Empty);
         }
 
         public void Pause()
         {
-            try
-            {
-                output?.Pause();
-            }
-            catch { }
+            isManualStop = false;
+            output?.Pause();
         }
 
         public void Resume()
         {
-            try
-            {
-                output?.Play();
-            }
-            catch { }
+            isManualStop = false;
+            output?.Play();
         }
 
         public void TogglePlayPause()
         {
             if (output == null) return;
 
-            if (output.PlaybackState == PlaybackState.Playing) Pause();
-            else Resume();
+            if (output.PlaybackState == PlaybackState.Playing)
+                Pause();
+            else
+                Resume();
         }
 
         public void Stop()
         {
-            try
-            {
-                if (output != null)
-                {
-                    output.Stop();
-                    output.PlaybackStopped -= Output_PlaybackStopped;
-                    output.Dispose();
-                    output = null;
-                }
-            }
-            catch { }
+            isManualStop = true;
 
-            if (Reader != null)
-            {
-                try { Reader.CurrentTime = TimeSpan.Zero; }
-                catch { }
-            }
+            try { output?.Stop(); } catch { }
+
+            output?.Dispose();
+            output = null;
+            currentFilePath = null;
+
+            Reader?.Dispose();
+            Reader = null;
+
+            VolumeProvider = null;
+            Equalizer = null;
         }
 
         public void Seek(double percent)
         {
             if (Reader == null) return;
-            if (percent < 0) percent = 0;
-            if (percent > 1) percent = 1;
-            var sec = Reader.TotalTime.TotalSeconds * percent;
-            Reader.CurrentTime = TimeSpan.FromSeconds(sec);
+
+            double seconds = Reader.TotalTime.TotalSeconds * percent;
+            Reader.CurrentTime = TimeSpan.FromSeconds(seconds);
         }
 
         public void SetVolume(float volume)
         {
-            if (VolumeProvider != null) VolumeProvider.Volume = volume;
+            if (VolumeProvider != null)
+                VolumeProvider.Volume = volume;
         }
     }
 }

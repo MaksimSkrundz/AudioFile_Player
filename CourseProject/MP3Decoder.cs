@@ -1,6 +1,5 @@
 ﻿using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
-using System.IO;
 
 namespace CourseProject
 {
@@ -8,13 +7,15 @@ namespace CourseProject
     {
         public AudioFileReader Reader { get; private set; }
 
-        public bool CanOpen(string path) =>
-            Path.GetExtension(path).ToLower() == ".mp3";  
+        public bool CanDecode(string path)
+        {
+            return path.ToLower().EndsWith(".mp3");
+        }
 
         public ISampleProvider Load(string path)
         {
             Reader = new AudioFileReader(path);
-            return Reader;
+            return Reader.ToSampleProvider();
         }
     }
 }

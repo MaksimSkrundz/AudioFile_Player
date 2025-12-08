@@ -1,5 +1,8 @@
-﻿public class PlaylistItem
+﻿namespace CourseProject
 {
-    public string FilePath { get; set; }
-    public string DisplayName { get; set; }
+    public class PlaylistItem
+    {
+        public string FilePath { get; set; }
+        public string DisplayName { get; set; }
+    }
 }

@@ -1,6 +1,9 @@
-﻿public class EqualizerBand
+﻿namespace CourseProject
 {
-    public float Frequency { get; set; }
-    public float Gain { get; set; }
-    public float Bandwidth { get; set; }
+    public class EqualizerBand
+    {
+        public float Frequency { get; set; }
+        public float Gain { get; set; }
+        public float Bandwidth { get; set; }
+    }
 }

@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Windows.Forms;
 
-static class Program
+namespace CourseProject
 {
-    [STAThread]
-    static void Main()
+    static class Program
     {
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new MainForm());
+        [STAThread]
+        static void Main()
+        {
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            Application.Run(new MainForm());
+        }
     }
 }

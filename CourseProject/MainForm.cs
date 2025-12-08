@@ -1,272 +1,395 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using CourseProject;
+using NAudio.Wave;
+using System;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 
-public class MainForm : Form
+namespace CourseProject
 {
-    private ListBox lstPlaylist;
-    private TrackBar trackVolume;
-    private TrackBar trackPosition;
-    private TrackBar eqLow;
-    private TrackBar eqMid;
-    private TrackBar eqHigh;
-    private Label lblTime;
-    private Label lblVolume;
-    private Label lblLow;
-    private Label lblMid;
-    private Label lblHigh;
-    private Label Eq;
-    private Button btnAdd;
-    private Button btnRemove;
-    private Button btnSave;
-    private Button btnLoad;
-    private Button btnPlay;
-    private Button btnPause;
-    private Button btnStop;
-
-    private Timer timer;
-    private List<PlaylistItem> playlist = new List<PlaylistItem>();
-    private AudioPlayer player = new AudioPlayer();
-
-    public MainForm()
+    public partial class MainForm : Form
     {
-        Text = "Плеер аудиофайлов с плейлистами и базовым эквалайзером";
-        Width = 800;
-        Height = 420;
+        private PlaylistManager playlistManager;
+        private AudioPlayer audioPlayer;
+        private Timer uiTimer;
 
-        InitializeComponent();
-
-        timer = new Timer { Interval = 200 };
-        timer.Tick += Timer_Tick;
-        timer.Start();
-
-        player.PlaybackStopped += OnTrackFinished;
-    }
-
-    private void InitializeComponent()
-    {
-        // Плейлист
-        lstPlaylist = new ListBox();
-        lstPlaylist.Location = new System.Drawing.Point(10, 10);
-        lstPlaylist.Size = new System.Drawing.Size(380, 300);
-        lstPlaylist.DoubleClick += (s, e) => PlaySelected();
-
-        // Кнопки управления плейлистом
-        btnAdd = new Button();
-        btnAdd.Text = "Добавить";
-        btnAdd.Location = new System.Drawing.Point(10, 320);
-        btnAdd.Click += BtnAdd_Click;
-
-        btnRemove = new Button();
-        btnRemove.Text = "Удалить";
-        btnRemove.Location = new System.Drawing.Point(100, 320);
-        btnRemove.Click += (s, e) =>
+        public MainForm()
         {
-            if (lstPlaylist.SelectedIndex >= 0)
-            {
-                playlist.RemoveAt(lstPlaylist.SelectedIndex);
-                RefreshPlaylist();
-            }
-        };
-
-        btnSave = new Button();
-        btnSave.Text = "Сохранить";
-        btnSave.Location = new System.Drawing.Point(190, 320);
-        btnSave.Click += (s, e) =>
-        {
-            var dlg = new SaveFileDialog { Filter = "JSON|*.json" };
-            if (dlg.ShowDialog() == DialogResult.OK)
-                PlaylistManager.Save(dlg.FileName, playlist);
-        };
-
-        btnLoad = new Button();
-        btnLoad.Text = "Загрузить";
-        btnLoad.Location = new System.Drawing.Point(280, 320);
-        btnLoad.Click += (s, e) =>
-        {
-            var dlg = new OpenFileDialog { Filter = "JSON|*.json" };
-            if (dlg.ShowDialog() == DialogResult.OK)
-            {
-                playlist = PlaylistManager.Load(dlg.FileName);
-                RefreshPlaylist();
-            }
-        };
-
-        // Кнопки управления воспроизведением
-        btnPlay = new Button();
-        btnPlay.Text = "Играть";
-        btnPlay.Location = new System.Drawing.Point(400, 10);
-        btnPlay.Click += (s, e) => PlaySelected();
-
-        btnPause = new Button();
-        btnPause.Text = "Пауза";
-        btnPause.Location = new System.Drawing.Point(500, 10);
-        btnPause.Click += (s, e) => player.Pause();
-
-        btnStop = new Button();
-        btnStop.Text = "Стоп";
-        btnStop.Location = new System.Drawing.Point(600, 10);
-        btnStop.Click += (s, e) =>
-        {
-            player.Stop();
-            trackPosition.Value = 0;
-            lblTime.Text = "00:00/00:00";
-        };
-
-        // Метка и регулятор громкости
-        lblVolume = new Label();
-        lblVolume.Text = "Звук:";
-        lblVolume.Location = new System.Drawing.Point(400, 50);
-        lblVolume.Size = new System.Drawing.Size(50, 20);
-
-        trackVolume = new TrackBar();
-        trackVolume.Location = new System.Drawing.Point(450, 50);
-        trackVolume.Size = new System.Drawing.Size(250, 45);
-        trackVolume.Minimum = 0;
-        trackVolume.Maximum = 100;
-        trackVolume.Value = 80;
-        trackVolume.Scroll += (s, e) => player.SetVolume(trackVolume.Value / 100f);
-
-        // Прогресс трека
-        trackPosition = new TrackBar();
-        trackPosition.Location = new System.Drawing.Point(400, 95);
-        trackPosition.Size = new System.Drawing.Size(350, 45);
-        trackPosition.Minimum = 0;
-        trackPosition.Maximum = 1000;
-        trackPosition.MouseUp += (s, e) =>
-        {
-            player.Seek(trackPosition.Value / 1000.0);
-        };
-
-        // Время
-        lblTime = new Label();
-        lblTime.Location = new System.Drawing.Point(400, 140);
-        lblTime.Size = new System.Drawing.Size(200, 20);
-        lblTime.Text = "00:00/00:00";
-
-        // Заголовок эквалайзера
-        Eq = new Label();
-        Eq.Text = "Эквалайзер";
-        Eq.Location = new System.Drawing.Point(560, 165);
-        Eq.Size = new System.Drawing.Size(70, 20);
-
-        // Low
-        lblLow = new Label();
-        lblLow.Text = "Low:";
-        lblLow.Location = new System.Drawing.Point(400, 190);
-        lblLow.Size = new System.Drawing.Size(40, 20);
-
-        eqLow = new TrackBar();
-        eqLow.Location = new System.Drawing.Point(450, 190);
-        eqLow.Size = new System.Drawing.Size(300, 45);
-        eqLow.Minimum = -12;
-        eqLow.Maximum = 12;
-        eqLow.Scroll += (s, e) => UpdateEQ();
-
-        // Mid
-        lblMid = new Label();
-        lblMid.Text = "Mid:";
-        lblMid.Location = new System.Drawing.Point(400, 235);
-        lblMid.Size = new System.Drawing.Size(40, 20);
-
-        eqMid = new TrackBar();
-        eqMid.Location = new System.Drawing.Point(450, 235);
-        eqMid.Size = new System.Drawing.Size(300, 45);
-        eqMid.Minimum = -12;
-        eqMid.Maximum = 12;
-        eqMid.Scroll += (s, e) => UpdateEQ();
-
-        // High
-        lblHigh = new Label();
-        lblHigh.Text = "High:";
-        lblHigh.Location = new System.Drawing.Point(400, 280);
-        lblHigh.Size = new System.Drawing.Size(40, 20);
-
-        eqHigh = new TrackBar();
-        eqHigh.Location = new System.Drawing.Point(450, 280);
-        eqHigh.Size = new System.Drawing.Size(300, 45);
-        eqHigh.Minimum = -12;
-        eqHigh.Maximum = 12;
-        eqHigh.Scroll += (s, e) => UpdateEQ();
-
-        Controls.AddRange(new Control[] {
-            lstPlaylist, btnAdd, btnRemove, btnSave, btnLoad,
-            btnPlay, btnPause, btnStop,
-            lblVolume, trackVolume,
-            trackPosition, lblTime, Eq,
-            lblLow, eqLow, lblMid, eqMid, lblHigh, eqHigh
-        });
-    }
-
-    void BtnAdd_Click(object sender, EventArgs e)
-    {
-        var dlg = new OpenFileDialog
-        {
-            Multiselect = true,
-            Filter = "Audio|*.mp3;*.wav;*.flac;*.aiff;*.m4a;*.wma"
-        };
-
-        if (dlg.ShowDialog() == DialogResult.OK)
-        {
-            foreach (var f in dlg.FileNames)
-                playlist.Add(new PlaylistItem { FilePath = f, DisplayName = Path.GetFileName(f) });
-
-            RefreshPlaylist();
+            InitializeComponent();
+            InitializeCustom();
         }
-    }
 
-    void RefreshPlaylist()
-    {
-        lstPlaylist.Items.Clear();
-        foreach (var p in playlist)
-            lstPlaylist.Items.Add(p.DisplayName);
-    }
-
-    void PlaySelected()
-    {
-        if (lstPlaylist.SelectedIndex < 0) return;
-
-        var item = playlist[lstPlaylist.SelectedIndex];
-        player.Play(item.FilePath, trackVolume.Value / 100f, GetBands());
-    }
-
-    EqualizerBand[] GetBands() => new[]
-    {
-        new EqualizerBand { Frequency = 100f, Bandwidth = 0.8f, Gain = eqLow.Value },
-        new EqualizerBand { Frequency = 1000f, Bandwidth = 1.0f, Gain = eqMid.Value },
-        new EqualizerBand { Frequency = 8000f, Bandwidth = 0.8f, Gain = eqHigh.Value }
-    };
-
-    void UpdateEQ()
-    {
-        if (player.Equalizer == null) return;
-
-        player.Equalizer.UpdateBand(0, eqLow.Value);
-        player.Equalizer.UpdateBand(1, eqMid.Value);
-        player.Equalizer.UpdateBand(2, eqHigh.Value);
-    }
-
-    void Timer_Tick(object sender, EventArgs e)
-    {
-        if (player.Reader == null) return;
-
-        var cur = player.Reader.CurrentTime;
-        var tot = player.Reader.TotalTime;
-
-        lblTime.Text = $"{cur:mm\\:ss}/{tot:mm\\:ss}";
-        trackPosition.Value = (int)(cur.TotalSeconds / tot.TotalSeconds * 1000);
-    }
-
-    void OnTrackFinished()
-    {
-        int next = lstPlaylist.SelectedIndex + 1;
-
-        if (next < playlist.Count)
+        private void RefreshPlaylistListBox()
         {
-            lstPlaylist.SelectedIndex = next;
+            lstPlaylist.Items.Clear();
+            foreach (var item in playlistManager.Playlist)
+                lstPlaylist.Items.Add(item.DisplayName);
+        }
+
+        private void InitializeCustom()
+        {
+            playlistManager = new PlaylistManager();
+            audioPlayer = new AudioPlayer();
+            // Подписка на событие должна соответствовать EventHandler
+            audioPlayer.PlaybackStopped += AudioPlayer_PlaybackStopped;
+
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+
+            uiTimer = new Timer { Interval = 200 };
+            uiTimer.Tick += UiTimer_Tick;
+            uiTimer.Start();
+
+            RefreshPlaylistListBox();
+        }
+
+        #region UI
+        private ListBox lstPlaylist;
+        private Button btnAdd, btnRemove, btnEditPlaylistForm, btnPlay, btnPause, btnStop, btnSave, btnLoad;
+        private TrackBar trVolume, trPosition, trEQLow, trEQMid, trEQHigh;
+        private Label lblTime, lblTitle, lblArtist;
+
+        private void InitializeComponent()
+        {
+            this.Text = "Audio Player";
+            this.Width = 900;
+            this.Height = 520;
+
+            lstPlaylist = new ListBox { Left = 10, Top = 10, Width = 400, Height = 430 };
+            lstPlaylist.DoubleClick += (s, e) => PlaySelected();
+            this.Controls.Add(lstPlaylist);
+
+            btnAdd = new Button { Left = 10, Top = 450, Width = 80, Text = "Добавить" };
+            btnAdd.Click += BtnAdd_Click;
+            this.Controls.Add(btnAdd);
+
+            btnRemove = new Button { Left = 100, Top = 450, Width = 80, Text = "Удалить" };
+            btnRemove.Click += BtnRemove_Click;
+            this.Controls.Add(btnRemove);
+
+            btnSave = new Button { Left = 190, Top = 450, Width = 85, Text = "СохранитьPL" };
+            btnSave.Click += BtnSave_Click;
+            this.Controls.Add(btnSave);
+
+            btnLoad = new Button { Left = 280, Top = 450, Width = 80, Text = "ЗагрузитьPL" };
+            btnLoad.Click += BtnLoad_Click;
+            this.Controls.Add(btnLoad);
+
+            btnEditPlaylistForm = new Button { Left = 370, Top = 450, Width = 130, Text = "Изменить плейлист..." };
+            btnEditPlaylistForm.Click += BtnEditPlaylistForm_Click;
+            this.Controls.Add(btnEditPlaylistForm);
+
+            btnPlay = new Button { Left = 430, Top = 10, Width = 80, Text = "Играть" };
+            btnPlay.Click += btnPlay_Click;
+            this.Controls.Add(btnPlay);
+
+            btnPause = new Button { Left = 520, Top = 10, Width = 80, Text = "Пауза" };
+            btnPause.Click += (s, e) => audioPlayer.Pause();
+            this.Controls.Add(btnPause);
+
+            btnStop = new Button { Left = 610, Top = 10, Width = 80, Text = "Стоп" };
+            btnStop.Click += btnStop_Click;
+            this.Controls.Add(btnStop);
+
+            trVolume = new TrackBar { Left = 460, Top = 60, Width = 260, Minimum = 0, Maximum = 100, Value = 80 };
+            trVolume.Scroll += (s, e) => audioPlayer.SetVolume(trVolume.Value / 100f);
+            this.Controls.Add(trVolume);
+
+            trPosition = new TrackBar { Left = 430, Top = 120, Width = 400, Minimum = 0, Maximum = 1000, Value = 0 };
+            trPosition.MouseDown += (s, e) => uiTimer.Stop();
+            trPosition.MouseUp += TrPosition_MouseUp;
+            this.Controls.Add(trPosition);
+
+            lblTime = new Label { Left = 430, Top = 170, Width = 250, Text = "00:00 / 00:00" };
+            this.Controls.Add(lblTime);
+
+            lblTitle = new Label { Left = 430, Top = 200, Width = 440, Text = "Название: -" };
+            this.Controls.Add(lblTitle);
+
+            lblArtist = new Label { Left = 430, Top = 230, Width = 440, Text = "Исполнитель: -" };
+            this.Controls.Add(lblArtist);
+
+            trEQLow = new TrackBar { Left = 475, Top = 310, Width = 400, Minimum = -12, Maximum = 12, Value = 0 };
+            trEQLow.Scroll += (s, e) => UpdateEQ();
+            this.Controls.Add(trEQLow);
+
+            trEQMid = new TrackBar { Left = 475, Top = 360, Width = 400, Minimum = -12, Maximum = 12, Value = 0 };
+            trEQMid.Scroll += (s, e) => UpdateEQ();
+            this.Controls.Add(trEQMid);
+
+            trEQHigh = new TrackBar { Left = 475, Top = 410, Width = 400, Minimum = -12, Maximum = 12, Value = 0 };
+            trEQHigh.Scroll += (s, e) => UpdateEQ();
+            this.Controls.Add(trEQHigh);
+
+            // Подпись "Звук"
+            var lblVolume = new Label
+            {
+                Left = 430,
+                Top = 60,
+                Width = 60,
+                Height = 20,
+                Text = "Звук:"
+            };
+            this.Controls.Add(lblVolume);
+
+            // Заголовок "Эквалайзер"
+            var lblEQTitle = new Label
+            {
+                Left = 420,
+                Top = 280,
+                Width = 520,
+                Height = 20,
+                Text = "Эквалайзер",
+                Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            this.Controls.Add(lblEQTitle);
+
+            // Подпись для Low
+            var lblEQLow = new Label
+            {
+                Left = 430,
+                Top = 310,
+                Width = 80,
+                Height = 20,
+                Text = "EQLow:"
+            };
+            this.Controls.Add(lblEQLow);
+
+            // Подпись для Mid
+            var lblEQMid = new Label
+            {
+                Left = 430,
+                Top = 360,
+                Width = 80,
+                Height = 20,
+                Text = "EQMid:"
+            };
+            this.Controls.Add(lblEQMid);
+
+            // Подпись для High
+            var lblEQHigh = new Label
+            {
+                Left = 430,
+                Top = 410,
+                Width = 80,
+                Height = 20,
+                Text = "EQHigh:"
+            };
+            this.Controls.Add(lblEQHigh);
+
+        }
+        #endregion
+
+        // ------------------ Buttons -----------------------
+
+        private void btnPlay_Click(object sender, EventArgs e)
+        {
+            // Если сейчас на паузе и output доступен — просто возобновляем
+            if (audioPlayer.OutputDevice != null &&
+                audioPlayer.OutputDevice.PlaybackState == PlaybackState.Paused &&
+                audioPlayer.Reader != null)
+            {
+                audioPlayer.Resume();
+                return;
+            }
+
             PlaySelected();
+        }
+
+        private void btnStop_Click(object sender, EventArgs e)
+        {
+            audioPlayer.Stop();
+
+            trPosition.Value = 0;
+            lblTime.Text = "00:00 / 00:00";
+        }
+
+        private void BtnRemove_Click(object sender, EventArgs e)
+        {
+            if (lstPlaylist.SelectedItem == null)
+            {
+                MessageBox.Show("Выберите трек для удаления.");
+                return;
+            }
+
+            int index = lstPlaylist.SelectedIndex;
+
+            // Если удаляем текущий проигрываемый трек — остановить
+            if (audioPlayer.Reader != null && index >= 0 &&
+                index < playlistManager.Playlist.Count &&
+                playlistManager.Playlist[index].FilePath == audioPlayer.Reader.FileName)
+            {
+                audioPlayer.Stop();
+            }
+
+            playlistManager.Playlist.RemoveAt(index);
+            RefreshPlaylistListBox();
+        }
+
+        private void BtnAdd_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new OpenFileDialog()
+            {
+                Multiselect = true,
+                Filter = "Audio Files|*.mp3;*.wav;*.flac;*.m4a"
+            })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    foreach (var f in dlg.FileNames)
+                        playlistManager.Playlist.Add(new PlaylistItem { FilePath = f, DisplayName = Path.GetFileName(f) });
+
+                    RefreshPlaylistListBox();
+                }
+            }
+        }
+
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new SaveFileDialog { Filter = "Playlist|*.json" })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                    playlistManager.Save(dlg.FileName);
+            }
+        }
+
+        private void BtnLoad_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new OpenFileDialog { Filter = "Playlist|*.json" })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    playlistManager.Load(dlg.FileName);
+                    RefreshPlaylistListBox();
+                }
+            }
+        }
+
+        private void BtnEditPlaylistForm_Click(object sender, EventArgs e)
+        {
+            var form = new PlaylistForm(playlistManager);
+            form.PlaylistUpdated += (list) =>
+            {
+                playlistManager.SetPlaylist(list);
+                RefreshPlaylistListBox();
+            };
+            form.Show();
+        }
+
+        // ------------------ Playback -----------------------
+
+        private void PlaySelected()
+        {
+            if (lstPlaylist.SelectedIndex < 0)
+            {
+                MessageBox.Show("Выберите трек");
+                return;
+            }
+
+            var item = playlistManager.Playlist[lstPlaylist.SelectedIndex];
+            var decoder = DecoderFactory.GetDecoderForFile(item.FilePath);
+
+            try
+            {
+                audioPlayer.Play(
+                    item.FilePath,
+                    trVolume.Value / 100f,
+                    new EqualizerBand[]
+                    {
+                        new EqualizerBand{Frequency = 100, Bandwidth = 0.8f, Gain = trEQLow.Value},
+                        new EqualizerBand{Frequency = 1000, Bandwidth = 1.0f, Gain = trEQMid.Value},
+                        new EqualizerBand{Frequency = 8000, Bandwidth = 0.8f, Gain = trEQHigh.Value},
+                    },
+                    decoder
+                );
+
+                UpdateTrackMetadata(item.FilePath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка воспроизведения: " + ex.Message);
+            }
+        }
+
+        private void UpdateTrackMetadata(string path)
+        {
+            try
+            {
+                var tags = MetadataReader.Read(path);
+                lblTitle.Text = "Title: " + (tags.Title ?? Path.GetFileName(path));
+                lblArtist.Text = "Artist: " + (tags.Artist ?? "Unknown");
+            }
+            catch
+            {
+                lblTitle.Text = "Title: " + Path.GetFileName(path);
+                lblArtist.Text = "Artist: Unknown";
+            }
+        }
+
+        // PlaybackStopped теперь имеет сигнатуру EventHandler
+        private void AudioPlayer_PlaybackStopped(object sender, EventArgs e)
+        {
+            // Здесь можно реализовать автоматическое переключение на следующий трек
+            // или другие действия по завершении воспроизведения.
+            // Пример (не включаем автопереход по Stop): если Reader != null и позиция в конце -> следующий
+            try
+            {
+                if (audioPlayer.Reader != null)
+                {
+                    var cur = audioPlayer.Reader.CurrentTime;
+                    var tot = audioPlayer.Reader.TotalTime;
+                    if (tot.TotalSeconds > 0 && cur >= tot)
+                    {
+                        int next = lstPlaylist.SelectedIndex + 1;
+                        if (next < playlistManager.Playlist.Count)
+                        {
+                            lstPlaylist.SelectedIndex = next;
+                            PlaySelected();
+                        }
+                    }
+                }
+            }
+            catch { /* безопасно игнорируем */ }
+        }
+
+        private void TrPosition_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (audioPlayer.Reader == null) { uiTimer.Start(); return; }
+
+            double pct = trPosition.Value / (double)trPosition.Maximum;
+            audioPlayer.Seek(pct);
+
+            uiTimer.Start();
+        }
+
+        private void UpdateEQ()
+        {
+            if (audioPlayer.Equalizer == null) return;
+
+            audioPlayer.Equalizer.UpdateBand(0, trEQLow.Value);
+            audioPlayer.Equalizer.UpdateBand(1, trEQMid.Value);
+            audioPlayer.Equalizer.UpdateBand(2, trEQHigh.Value);
+        }
+
+        private void UiTimer_Tick(object sender, EventArgs e)
+        {
+            if (audioPlayer.Reader == null) return;
+
+            var cur = audioPlayer.Reader.CurrentTime;
+            var tot = audioPlayer.Reader.TotalTime;
+
+            lblTime.Text = $"{cur:mm\\:ss} / {tot:mm\\:ss}";
+
+            if (tot.TotalSeconds > 0)
+                trPosition.Value = (int)(cur.TotalSeconds / tot.TotalSeconds * trPosition.Maximum);
+        }
+
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Space)
+                audioPlayer.TogglePlayPause();
         }
     }
 }

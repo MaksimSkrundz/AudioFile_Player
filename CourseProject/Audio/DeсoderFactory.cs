@@ -10,16 +10,14 @@ namespace CourseProject
         {
             new Mp3Decoder(),
             new WavDecoder()
+            // можно добавить FLAC/other декодеры
         };
 
         public static IAudioDecoder GetDecoderForFile(string path)
         {
-            var decoder = decoders.FirstOrDefault(d => d.CanDecode(path));
-
-            if (decoder == null)
-                throw new NotSupportedException("Неизвестный формат: " + path);
-
-            return decoder;
+            var d = decoders.FirstOrDefault(x => x.CanDecode(path));
+            if (d == null) throw new NotSupportedException("Неизвестный формат: " + path);
+            return d;
         }
     }
 }

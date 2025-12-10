@@ -3,13 +3,13 @@ using NAudio.Wave.SampleProviders;
 
 namespace CourseProject
 {
-    public class Mp3Decoder : IAudioDecoder
+    public class WavDecoder : IAudioDecoder
     {
         public AudioFileReader Reader { get; private set; }
 
         public bool CanDecode(string path)
         {
-            return path.ToLower().EndsWith(".mp3");
+            return path != null && path.ToLower().EndsWith(".wav");
         }
 
         public ISampleProvider Load(string path)

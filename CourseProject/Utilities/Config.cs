@@ -14,21 +14,13 @@ namespace CourseProject
             if (settings != null) return;
             if (File.Exists(cfgPath))
             {
-                try
-                {
-                    settings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(cfgPath));
-                }
+                try { settings = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(cfgPath)); }
                 catch { settings = new Dictionary<string, string>(); }
             }
             else settings = new Dictionary<string, string>();
         }
 
-        public static string LoadSetting(string key)
-        {
-            EnsureLoaded();
-            if (settings.TryGetValue(key, out var v)) return v;
-            return null;
-        }
+        public static string LoadSetting(string key) { EnsureLoaded(); return settings.TryGetValue(key, out var v) ? v : null; }
 
         public static void SaveSetting(string key, string value)
         {

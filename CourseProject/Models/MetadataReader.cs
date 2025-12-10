@@ -10,7 +10,6 @@ namespace CourseProject
             try
             {
                 var file = TagLib.File.Create(path);
-
                 return new TrackMetadata
                 {
                     Title = file.Tag.Title ?? System.IO.Path.GetFileName(path),

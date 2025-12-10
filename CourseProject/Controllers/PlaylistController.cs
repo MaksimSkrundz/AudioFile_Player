@@ -60,32 +60,40 @@ namespace CourseProject
 
         public void SavePlaylist()
         {
-            string playlistsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
-            if (!Directory.Exists(playlistsDir))
-            {
-                Directory.CreateDirectory(playlistsDir); 
-            }
+            string playlistsDir = Path.Combine(PathHelper.GetProjectRoot(), "Playlists");
+            Directory.CreateDirectory(playlistsDir);
 
-            using (var dlg = new SaveFileDialog { Filter = "Playlist (*.json)|*.json", InitialDirectory = playlistsDir })
+            using (var dlg = new SaveFileDialog
             {
-                if (dlg.ShowDialog() != DialogResult.OK) return;
-                manager.Save(dlg.FileName);
+                Filter = "Плейлист (*.json)|*.json",
+                InitialDirectory = playlistsDir,
+                Title = "Сохранить плейлист"
+            })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    manager.Save(dlg.FileName);
+                }
             }
         }
 
         public void LoadPlaylist()
         {
-            string playlistsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Playlists");
-            if (!Directory.Exists(playlistsDir))
-            {
-                Directory.CreateDirectory(playlistsDir); 
-            }
+            string playlistsDir = Path.Combine(PathHelper.GetProjectRoot(), "Playlists");
+            Directory.CreateDirectory(playlistsDir);
 
-            using (var dlg = new OpenFileDialog { Filter = "Playlist (*.json)|*.json", InitialDirectory = playlistsDir })
+            using (var dlg = new OpenFileDialog
             {
-                if (dlg.ShowDialog() != DialogResult.OK) return;
-                manager.Load(dlg.FileName);
-                refreshAction();
+                Filter = "Плейлист (*.json)|*.json",
+                InitialDirectory = playlistsDir,
+                Title = "Загрузить плейлист"
+            })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    manager.Load(dlg.FileName);
+                    refreshAction?.Invoke();
+                }
             }
         }
 

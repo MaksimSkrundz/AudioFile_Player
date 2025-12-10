@@ -30,6 +30,11 @@ namespace CourseProject
 
         private void InitializeCustom()
         {
+            //  папка Playlists в корне проекта при запуске
+            string playlistsDir = Path.Combine(PathHelper.GetProjectRoot(), "Playlists");
+            if (!Directory.Exists(playlistsDir))
+                Directory.CreateDirectory(playlistsDir);
+
             // 1. Основные объекты
             playlistManager = new PlaylistManager();
             audioPlayer = new AudioPlayer();

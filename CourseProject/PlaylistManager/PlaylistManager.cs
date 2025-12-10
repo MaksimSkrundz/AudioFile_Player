@@ -23,19 +23,19 @@ namespace CourseProject.Playlist
         {
             var json = JsonSerializer.Serialize(Playlist, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(path, json);
-            CurrentPlaylistPath = path;  // Запоминаем, куда сохранили
+
+            CurrentPlaylistPath = path;
         }
 
-        // Загружаем + запоминаем путь
         public void Load(string path)
         {
             if (!File.Exists(path)) return;
             var json = File.ReadAllText(path);
             Playlist = JsonSerializer.Deserialize<List<PlaylistItem>>(json) ?? new List<PlaylistItem>();
-            CurrentPlaylistPath = path;  // Запоминаем, откуда загрузили
+
+            CurrentPlaylistPath = path; 
         }
 
-        // Новый метод: сохранить в текущий файл (если он был)
         public bool SaveCurrent()
         {
             if (string.IsNullOrEmpty(CurrentPlaylistPath)) return false;

@@ -114,6 +114,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Audio\AudioPlayer.cs" />
+    <Compile Include="Utilities\PathHelper.cs" />
     <Compile Include="Utilities\Config.cs" />
     <Compile Include="Audio\DeсoderFactory.cs" />
     <Compile Include="Controllers\EQController.cs" />

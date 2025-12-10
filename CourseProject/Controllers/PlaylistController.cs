@@ -20,12 +20,34 @@ namespace CourseProject
 
         public void AddTracks()
         {
-            using (var dlg = new OpenFileDialog { Multiselect = true, Filter = "Audio|*.mp3;*.wav;*.flac;*.m4a" })
+            string projectDir = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory).Parent.Parent.Parent.FullName;
+            string audioFilesDir = Path.Combine(projectDir, "Audiofiles");
+
+            if (!Directory.Exists(audioFilesDir))
             {
-                if (dlg.ShowDialog() != DialogResult.OK) return;
-                foreach (var f in dlg.FileNames)
-                    manager.Add(new PlaylistItem { FilePath = f, DisplayName = Path.GetFileName(f) });
-                refreshAction();
+                Directory.CreateDirectory(audioFilesDir);
+            }
+
+            using (var dlg = new OpenFileDialog
+            {
+                Multiselect = true,
+                Filter = "Аудиофайлы|*.mp3;*.wav;*.flac;*.m4a;*.ogg|Все файлы|*.*",
+                Title = "Выберите треки",
+                InitialDirectory = audioFilesDir
+            })
+            {
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    foreach (var filePath in dlg.FileNames)
+                    {
+                        manager.Add(new PlaylistItem
+                        {
+                            FilePath = filePath,
+                            DisplayName = Path.GetFileName(filePath)
+                        });
+                    }
+                    refreshAction?.Invoke();
+                }
             }
         }
 
